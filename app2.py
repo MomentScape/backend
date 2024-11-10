@@ -1,4 +1,3 @@
-
 from flask import Flask, jsonify, request, send_file, abort
 from PIL import Image
 import os
@@ -56,19 +55,13 @@ def save_image(image):
 @app.route("/upload", methods=["POST"])
 def upload_image():
     if "image" not in request.files:
-        print("No file provided in the request.")
         return jsonify({"error": "No file provided"}), 400
 
     # Process image upload
     image_file = request.files["image"]
-    try:
-        image = Image.open(image_file)
-    except Exception as e:
-        print("Error opening image:", e)
-        return jsonify({"error": "Failed to open image"}), 400
-    
+    image = Image.open(image_file)
     img_id, img_path = save_image(image)
-    
+
     # Encode the image for LLM processing
     encoded_image = encode_image(img_path)
 
@@ -77,13 +70,10 @@ def upload_image():
     if llm_response:
         image_data[img_id].update(llm_response)
         image_data[img_id]["status"] = "complete"
-        print("LLM response processed successfully.")
     else:
         image_data[img_id]["status"] = "failed"
-        print("LLM response processing failed.")
         
     generate_textures(img_id)
-    # doimg2threeD(img_path, os.path.join(BASE_DIR, img_id, "model", "asset.glb")) 
 
     return jsonify({"message": "Image uploaded successfully", "img_id": img_id})
 
@@ -94,49 +84,7 @@ def encode_image(image_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-# # Helper function to send image to LLM and retrieve JSON
-# def send_to_llm(encoded_image):
-#     response = client.chat.completions.create(
-#         model="gpt-4o",
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": (
-#                     "Generate JSON in this rough format for images:\n\n"
-#                     '{"status": (processing, done, failed), Indoor:Bool, Objects: [list of this format '
-#                     '{"type": (table, chair , door) only detect these nothing extra], count: int rough '
-#                     "number of this object in the image, scatter: bool to say if the object is scattered or not}, "
-#                     "position: xyz coordinates of the objects (give me x y z coordinates of table, chair , door in the image), "
-#                     '"Wall-texture": str prompt for the texture to be detail-oriented with colors and pattern information, "Floor-texture": str prompt for the texture to be detail-oriented with colors and pattern information, '
-#                     '"Ceiling-texture": str prompt for the texture to be detail-oriented with colors and pattern information}\n\n'
-#                     "Return only this JSON and nothing else, add no extra fields."
-#                 ),
-#             },
-#             {
-#                 "role": "user",
-#                 "content": [
-#                     {
-#                         "type": "image_url",
-#                         "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"},
-#                     }
-#                 ],
-#             },
-#         ],
-#         temperature=1,
-#         max_tokens=500,
-#         top_p=1,
-#         frequency_penalty=0,
-#         presence_penalty=0,
-#     )
-
-#     try:
-#         return json.loads(response.choices[0].message.content)
-#     except Exception as e:
-#         print("Error parsing LLM response:", e)
-#         return None
-
-import json
-
+# Helper function to send image to LLM and retrieve JSON
 def send_to_llm(encoded_image):
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -167,21 +115,11 @@ def send_to_llm(encoded_image):
         presence_penalty=0,
     )
 
-    content = response.choices[0].message.content.strip()
-
-    # Check if content is empty or non-JSON (text response instead of JSON)
     try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        print("Error parsing LLM response as JSON. Non-JSON response received.")
-        print("Response content:", content)
-        # Fallback JSON response to handle the error gracefully
-        return {
-            "status": "failed",
-            "error_message": "LLM could not process the image or returned a non-JSON response.",
-            "llm_response": content
-        }
-
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print("Error parsing LLM response:", e)
+        return None
 
 
 # 1. Route to list all IDs
