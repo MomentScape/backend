@@ -50,6 +50,7 @@ def save_image(image):
     }
     return img_id, img_path
 
+import requests
 
 # Route to upload an image
 @app.route("/upload", methods=["POST"])
@@ -73,6 +74,31 @@ def upload_image():
     else:
         image_data[img_id]["status"] = "failed"
         
+    # doimg2threeD(img_path, os.path.join(BASE_DIR, img_id, "model", "asset.glb")) 
+    # Call the /img2threeD API
+    url = "http://localhost:5100/img2threeD"
+    files = {'image': open(img_path, 'rb')}
+    params = {
+        'do_remove_background': 1,  # or any other value as needed
+        'sample_steps': 75,        # or customize based on your requirement
+        'sample_seed': 42          # or customize based on your requirement
+    }
+    try:
+        response = requests.post(url, files=files, data=params)
+        if response.status_code == 200:
+            # Save the 3D output file if needed
+            output_path = os.path.join(BASE_DIR, img_id, "model", "asset.glb")
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            print(f"3D model saved at {output_path}")
+        else:
+            print(f"3D generation failed with status code {response.status_code}: {response.json()}")
+    except Exception as e:
+        print(f"Error calling 3D generation API: {e}")
+    
+    
+    
+
     generate_textures(img_id)
 
     return jsonify({"message": "Image uploaded successfully", "img_id": img_id})
